@@ -1,0 +1,71 @@
+{
+  "name": "glsl-gaussian",
+  "version": "0.1.0",
+  "description": "glsl-gaussian is a shader generator for WebGL, to generate a gaussian blur of an input texture",
+  "main": "glsl-gaussian.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/realazthat/glsl-gaussian.git"
+  },
+  "bugs": {
+    "url": "https://github.com/realazthat/glsl-gaussian/issues"
+  },
+  "author": "Azriel Fasten",
+  "license": "MIT",
+  "semistandard": {
+    "ignore": [
+      "dist/*",
+      "www/*"
+    ]
+  },
+  "dependencies": {
+    "glsl-quad": "1.0.0",
+    "glsl-sat": "^0.1.0",
+    "nunjucks": "~1.3.4",
+    "regl": "git://github.com/mikolalysenko/regl.git#gh-pages"
+  },
+  "devDependencies": {
+    "browserify": "^13.1.0",
+    "disc": "^1.3.2",
+    "glsl-numerify": "1.0.0",
+    "indexhtmlify": "^1.3.0",
+    "jquery-browserify": "^1.8.1",
+    "mkdirp": "^0.5.1",
+    "ncp": "^2.0.0",
+    "resl": "^1.0.1",
+    "semistandard": "~8.0.0",
+    "snazzy": "^4.0.0"
+  },
+  "keywords": [
+    "webgl",
+    "gl",
+    "graphics",
+    "computer graphics",
+    "opengl",
+    "glsl",
+    "data",
+    "shader",
+    "image processing",
+    "dsp",
+    "convolution",
+    "kernel",
+    "filter",
+    "blur",
+    "summed area table",
+    "box blur",
+    "gaussian",
+    "downsample",
+    "downsampling",
+    "subsample",
+    "subsampling",
+    "scaling",
+    "mipmap"
+  ],
+  "scripts": {
+    "mytest": "semistandard | snazzy",
+    "build": "npm run build-script && npm run build-demo && npm run build-live-demo",
+    "build-script": "mkdir -p ./dist && browserify glsl-gaussian.js --standalone glsl-gaussian > ./dist/glsl-gaussian.js",
+    "build-demo": "mkdir -p ./www/glsl-gaussian-demo/ && browserify ./glsl-gaussian-demo.js | indexhtmlify > ./www/glsl-gaussian-demo/index.html",
+    "build-live-demo": "node scripts/build-live-demo.js"
+  }
+}

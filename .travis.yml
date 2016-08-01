@@ -1,0 +1,23 @@
+sudo: required
+language: node_js
+node_js:
+  - '6.3'
+env:
+  global:
+    - CXX=g++-4.8
+    #GH_TOKEN
+    - secure: >-
+        Sq3mj3BFGc090A+I1nBpvMHC4up6jXQF1Tz22IBeTAPdygVrOWl9YDOjG0+jEloRrX/GYvXhluAgb8b4RHmvs+ZlYRykn6Y4HFBcnT88T04tzdBj+huPjOYo3gvw7u8o9Wh/4LfIgOOk9js3TKtqxh7h8GAqsU++5UIP54GPlrLYvC+wJ5FslYElWmIDhCrXBZERGjEGNRweaVeVorE1vNiyqvB5NYYF728fQuiwQKyOGQYQAlyYan80lPiQEzWVQWPblUocZqgawYC/MgQSU0xs5R+p+PcQyV/Px60A/jZjgNFhFwdJea/GzrVD9xPbMU+YNOM5NDKSLDvSUMABhodbDdc+rlOgC5Qj6H2FdZM+I7CP8a1w+fPNxJ9q3FCV4wp7j5RimbA9U0JckPcv2HOx1UV2Yx0/pTfRJiHNDgqUDft69ZjcaghEvmTuC+uC99N/YudUWDJad+KPf3ETuUHubqrqOzJl0tTkNYnyJ5b/kVVBFdlAp+AH1uZCEP6BRfAZX1z1E7wMXNS4pQJFgPb8EXJtg5CFf5UTeLZuWuEEmRgw0YhH7DQTg0YP51xYh6AAIHneqbvxaTnUPVztIH1YDWgUKc4q46AshRy5SD5r/OUZw0G6ms5qOfsQ4CB5T36qgljLcKUvKVf4oxzX1ulyqZ40c6CnHfsg3X1uMZY=
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.8
+install:
+  - npm install --global browserify
+  - npm install
+script:
+  - npm run mytest
+  - npm run build
+  - bash scripts/publish-static-demos.sh
