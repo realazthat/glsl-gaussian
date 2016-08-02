@@ -8,7 +8,7 @@ glsl-gaussian
 glsl-gaussian is a shader generator for WebGL, to generate a gaussian blur of an input texture.
 
 
-See `glsl-gaussian-demo.js` for usage.
+See `glsl-gaussian-live-demo.js`, `glsl-gaussian-demo.js` for usage.
 
 ####Dependencies
 
@@ -35,6 +35,8 @@ To run the demo, run:
     #browser should open with the demo
     budo glsl-gaussian-demo.js --open
 
+    #browser should open with the demo
+    budo glsl-gaussian-live-demo.js --open
 
 ```
 
@@ -52,9 +54,13 @@ develop | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/develo
 (Image credit: [Storm Cell Over the Southern Appalachian Mountains](http://www.nasa.gov/content/storm-cell-over-the-southern-appalachian-mountains),
 *NASA / Stu Broce*, public domain by virtue of being)
 
- Source Image | Gaussian Blur with radius 1  | Gaussian Blur with radius 2 | Gaussian Blur with radius 4 |
- -------------|------------------------------|-----------------------------|-----------------------------|
-<img src="assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256"/>|<img src="./assets/result-256x256x-r1.png"/>|<img src="./assets/result-256x256x-r2.png"/>|<img src="./assets/result-256x256x-r4.png"/>|
+ Source Image |
+--------------|
+<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256"/>
+
+ Gaussian Blur with radius 1  | Gaussian Blur with radius 2 | Gaussian Blur with radius 4 |
+------------------------------|-----------------------------|-----------------------------|
+<img src="./assets/result-256x256x-r1.png"/>|<img src="./assets/result-256x256x-r2.png"/>|<img src="./assets/result-256x256x-r4.png"/>|
 
 
 ####Docs
@@ -131,7 +137,7 @@ and [resl](https://github.com/mikolalysenko/resl).
 An excerpt:
 
 ```
-  
+
   gaussian.blur.gaussian.compute({regl, texture, radius, fbos, outFbo, components: 'rgb', type: 'vec3'});
 
 
