@@ -68,7 +68,7 @@ resl({
       },
       viewport: {
         x: regl.prop('x'),
-        y: 0,
+        y: regl.prop('y'),
         width: texture.width,
         height: texture.height
       }
@@ -144,10 +144,11 @@ resl({
       });
 
       let x = viewportWidth / 2.0 - texture.width;
-      draw({texture: texture, x: x});
+      let y = viewportHeight / 2.0 - texture.height / 2.0;
+      draw({texture: texture, x, y});
 
       x += texture.width;
-      draw({texture: outFbo.color[0], x: x});
+      draw({texture: outFbo.color[0], x, y});
 
       // -----------------------------------------------------------------------
       $radiusView.text('' + radius);
