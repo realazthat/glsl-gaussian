@@ -52,11 +52,11 @@ develop | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/develo
 **Results:**
 
 (Image credit: [Storm Cell Over the Southern Appalachian Mountains](http://www.nasa.gov/content/storm-cell-over-the-southern-appalachian-mountains),
-*NASA / Stu Broce*, public domain by virtue of being)
+*NASA / Stu Broce*, public domain by virtue of being created by NASA)
 
  Source Image |
 --------------|
-<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256"/>
+<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.jpg"/>
 
  Gaussian Blur with radius 1  | Gaussian Blur with radius 2 | Gaussian Blur with radius 4 |
 ------------------------------|-----------------------------|-----------------------------|
