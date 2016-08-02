@@ -131,9 +131,8 @@ and [resl](https://github.com/mikolalysenko/resl).
 An excerpt:
 
 ```
-  TODO
-  computeSat({texture: texture, fbos: fbos, outFbo: outFbo, regl});
-
+  
+  gaussian.blur.gaussian.compute({regl, texture, radius, fbos, outFbo, components: 'rgb', type: 'vec3'});
 
 
 ```
