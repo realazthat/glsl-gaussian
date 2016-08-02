@@ -11,8 +11,8 @@ const regl = require('regl')({
 });
 
 const gaussian = require('./glsl-gaussian.js');
-const numerify = require('glsl-numerify');
 const quad = require('glsl-quad');
+var μs = require('microseconds');
 
 resl({
   manifest: {
@@ -74,7 +74,7 @@ resl({
       }
     });
 
-    let maxRadius = Math.max(texture.width,texture.height);
+    let maxRadius = Math.max(texture.width, texture.height);
 
     $('canvas').css('z-index', '-10');
     let $page = $('<div class="page">')
@@ -83,10 +83,9 @@ resl({
       .css('color', '#CBCE92')
       .appendTo($('body'));
 
-    $controlsDiv = $('<div/>').appendTo($page);
+    let $controlsDiv = $('<div/>').appendTo($page);
 
-
-    let template =`
+    let template = `
     <table class="controls">
       <tr>
       </tr>
@@ -101,7 +100,8 @@ resl({
         <td><span id="fps-view"/></td>
       </tr>
     </table>
-    `
+    `;
+
     $controlsDiv.html(nunjucks.renderString(template));
 
     // -------------------------------------------------------------------------
@@ -116,10 +116,10 @@ resl({
     $FPSView.text('0');
     // -------------------------------------------------------------------------
 
-    function approxRollingAverage (avg, new_sample, N) {
+    function approxRollingAverage (avg, newSample, N) {
       // from http://stackoverflow.com/a/16757630/586784
       avg -= avg / N;
-      avg += new_sample / N;
+      avg += newSample / N;
 
       return avg;
     }
@@ -128,17 +128,14 @@ resl({
     let rollingFPSAvgN = 20;
 
     regl.frame(function ({viewportWidth, viewportHeight}) {
-
       let radius = parseInt($radiusControl.val());
 
-      let tt0 = performance.now();
+      let tt0 = μs.now();
       gaussian.blur.gaussian.compute({regl, texture, radius, fbos, outFbo, components: 'rgb', type: 'vec3'});
-      let tt1 = performance.now();
 
-      let deltaSeconds = (tt1 - tt0)/1000.0;
+      let deltaSeconds = μs.since(tt0) / 1000000;
 
-
-      rollingFPSAvg = approxRollingAverage(rollingFPSAvg, 1/deltaSeconds, rollingFPSAvgN);
+      rollingFPSAvg = approxRollingAverage(rollingFPSAvg, 1 / deltaSeconds, rollingFPSAvgN);
 
       regl.clear({
         color: [0, 0, 0, 1],
@@ -153,9 +150,8 @@ resl({
       draw({texture: outFbo.color[0], x: x});
 
       // -----------------------------------------------------------------------
-      $radiusView.text(''+radius);
-      $FPSView.text(''+rollingFPSAvg.toFixed(2));
+      $radiusView.text('' + radius);
+      $FPSView.text('' + rollingFPSAvg.toFixed(2));
     });
-
   }
 });

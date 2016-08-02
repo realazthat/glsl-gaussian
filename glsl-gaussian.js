@@ -2,13 +2,12 @@
 const quad = require('glsl-quad');
 const sat = require('glsl-sat');
 
-function makeBoxBlurVShader({sat_width, sat_height, radius, components = 'rgba', type = 'vec4'}){
-
-  const hradius = (1/sat_width)*radius;
-  const vradius = (1/sat_height)*radius;
+function makeBoxBlurVShader ({textureWidth, textureHeight, radius, components = 'rgba', type = 'vec4'}) {
+  const hradius = (1 / textureWidth) * radius;
+  const vradius = (1 / textureHeight) * radius;
 
   const upperOffset = `vec2( ${hradius}, ${vradius})`;
-  const lowerOffset = `vec2(-${hradius + 1.0/sat_width}, -${vradius + 1.0/sat_height})`;
+  const lowerOffset = `vec2(-${hradius + 1.0 / textureWidth}, -${vradius + 1.0 / textureHeight})`;
 
   const vert = `
     precision highp float;
@@ -33,9 +32,9 @@ function makeBoxBlurVShader({sat_width, sat_height, radius, components = 'rgba',
   return vert;
 }
 
-function makeBoxBlurFShader({radius, sat_width, sat_height, components = 'rgba', type = 'vec4'}){
-  const pixelDelta = `1.0/vec2(${sat_width}, ${sat_height})`;
-  const area = (2*radius+1)*(2*radius+1);
+function makeBoxBlurFShader ({textureWidth, textureHeight, radius, components = 'rgba', type = 'vec4'}) {
+  const pixelDelta = `1.0/vec2(${textureWidth}, ${textureHeight})`;
+  const area = (2 * radius + 1) * (2 * radius + 1);
   const frag = `
     precision highp float;
 
@@ -69,147 +68,128 @@ function makeBoxBlurFShader({radius, sat_width, sat_height, components = 'rgba',
   return frag;
 }
 
-function computeBoxBlur({regl, src, radius, outFbo = null, components = 'rgba', type = 'vec4', clipY = 1}){
-  let sat_texture = src.sat_texture;
-  let currentFboIndex = src.currentFboIndex;
-
-  if (sat_texture === undefined || sat_texture === null) {
-    ({currentFboIndex} = sat.computeSat({regl, texture: src.texture, fbos: src.fbos, currentFboIndex: src.currentFboIndex, components, type, clipY}));
-    src.currentFboIndex = currentFboIndex;
-    sat_texture = src.fbos[src.currentFboIndex].color[0];
+function computeBoxBlur ({regl, src, radius, outFbo = null, components = 'rgba', type = 'vec4', clipY = 1}) {
+  if ((outFbo === null || outFbo === undefined) && (src.fbos === null || src.fbos === undefined)) {
+    throw new Error('`outFbo` is null and `src.fbos` is null; nowhere to put output');
   }
 
-  const sat_width = sat_texture.width;
-  const sat_height = sat_texture.height;
-  const hradius = (1/sat_texture.width)*radius;
-  const vradius = (1/sat_texture.height)*radius;
+  let satTexture = src.satTexture;
+  let currentFboIndex = src.currentFboIndex;
 
-  const upperOffset = `vec2( ${hradius}, ${vradius})`;
-  const lowerOffset = `vec2(-${hradius + 1.0/sat_texture.width}, -${vradius + 1.0/sat_texture.height})`;
+  if (satTexture === undefined || satTexture === null) {
+    ({currentFboIndex} = sat.computeSat({regl, texture: src.texture, fbos: src.fbos, currentFboIndex: src.currentFboIndex, components, type, clipY}));
+    src.currentFboIndex = currentFboIndex;
+    satTexture = src.fbos[src.currentFboIndex].color[0];
+  }
 
-  const area = (2*radius+1)*(2*radius+1);
-  const vert = makeBoxBlurVShader({sat_width, sat_height, radius, components, type})
+  const textureWidth = satTexture.width;
+  const textureHeight = satTexture.height;
 
-  // console.log('vert:',vert);
-
-  const frag = makeBoxBlurFShader({sat_width, sat_height, radius, components, type});
-
-  // console.log('frag:',frag);
-
+  const vert = makeBoxBlurVShader({textureWidth, textureHeight, radius, components, type});
+  const frag = makeBoxBlurFShader({textureWidth, textureHeight, radius, components, type});
 
   const draw = regl({
-      frag: frag,
-      vert: vert,
-      attributes: {
-          a_position: quad.verts,
-          a_uv: quad.uvs
-      },
-      elements: quad.indices,
-      uniforms: {
-          u_sat_texture: regl.prop('sat_texture'),
-          u_clip_y: clipY
-      },
-      framebuffer: regl.prop('fbo')
+    vert: vert,
+    frag: frag,
+    attributes: {
+      a_position: quad.verts,
+      a_uv: quad.uvs
+    },
+    elements: quad.indices,
+    uniforms: {
+      u_sat_texture: regl.prop('satTexture'),
+      u_clip_y: clipY
+    },
+    framebuffer: regl.prop('fbo')
   });
 
   if (outFbo !== undefined && outFbo !== null) {
-    draw({sat_texture: sat_texture, fbo: outFbo});
+    draw({satTexture: satTexture, fbo: outFbo});
   } else {
     src.currentFboIndex = (src.currentFboIndex + 1) % src.fbos.length;
-    draw({sat_texture: sat_texture, fbo: src.fbos[src.currentFboIndex]});
+    draw({satTexture: satTexture, fbo: src.fbos[src.currentFboIndex]});
   }
   return {currentFboIndex};
 }
 
+function computeGaussian ({ regl, texture, radius, fbos, currentFboIndex = 0
+                          , boxPasses = 3, outFbo = null, components = 'rgba', type = 'vec4', clipY = 1}) {
+  if (fbos.length < 2) {
+    throw new Error('fbos.length must be at least 2');
+  }
 
+  let lastBoxBlurPass = boxPasses - 1;
 
-function computeGaussian({regl, texture, radius, fbos, box_passes = 3, currentFboIndex = 0, outFbo = null, components = 'rgba', type = 'vec4', clipY = 1}){
-  if (fbos.length < 2)
-    throw new Error("fbos.length must be at least 2");
-
-
-  let last_box_blur_pass = box_passes - 1;
-
-  for (let box_blur_pass = 0; box_blur_pass < box_passes; ++box_blur_pass){
-    let passInTexture = fbos[currentFboIndex];
-    if (box_blur_pass == 0) {
+  for (let boxBlurPass = 0; boxBlurPass < boxPasses; ++boxBlurPass) {
+    let passInTexture = fbos[currentFboIndex].color[0];
+    if (boxBlurPass === 0) {
       passInTexture = texture;
     }
 
     ({currentFboIndex} = sat.computeSat({regl, texture: passInTexture, fbos: fbos, currentFboIndex, components, type, clipY}));
 
-
-
     let satFbo = fbos[currentFboIndex];
 
-    if (box_blur_pass == last_box_blur_pass && (outFbo !== null && outFbo !== undefined))
-    {
-      computeBoxBlur({regl, radius, src: {sat_texture: satFbo.color[0]}, outFbo: outFbo, components, type, clipY});
+    if (boxBlurPass === lastBoxBlurPass && (outFbo !== null && outFbo !== undefined)) {
+      computeBoxBlur({regl, radius, src: {satTexture: satFbo.color[0]}, outFbo: outFbo, components, type, clipY});
     } else {
       currentFboIndex = (currentFboIndex + 1) % fbos.length;
       let blurredFbo = fbos[currentFboIndex];
-      computeBoxBlur({regl, radius, src: {sat_texture: satFbo.color[0]}, outFbo: blurredFbo, components, type, clipY});
+      computeBoxBlur({regl, radius, src: {satTexture: satFbo.color[0]}, outFbo: blurredFbo, components, type, clipY});
     }
   }
 
   return {currentFboIndex};
 }
 
+// function makeSubsampleVShader () {
+//   return `
+//     precision medium float;
+//     attribute vec2 a_position;
+//     attribute vec2 a_uv;
+//     uniform float u_clip_y;
 
+//     varying vec2 v_uv;
 
-function makeSubsampleVShader () {
-  return `
-    precision medium float;
-    attribute vec2 a_position;
-    attribute vec2 a_uv;
-    uniform float u_clip_y;
+//     void main() {
+//       v_uv = a_uv;
 
-    varying vec2 v_uv;
-    
-    void main() {
-      v_uv = a_uv;
+//       gl_Position = vec4(a_position.xy * vec2(1, u_clip_y), 0, 1);
+//     }
+//   `;
+// }
 
-      gl_Position = vec4(a_position.xy * vec2(1, u_clip_y), 0, 1);
-    }
-  `;
-}
+// function makeSubsampleFShader (sourceSize, destinationSize, components = 'rgba', type = 'vec4') {
+//   return `
+//     precision highp float;
 
-function makeSubsampleFShader (sourceSize, destinationSize, components = 'rgba', type = 'vec4') {
-  
-  
-  return `
-    precision highp float;
+//     varying vec2 v_uv;
+//     uniform sampler2D u_texture;
 
-    varying vec2 v_uv;
-    uniform sampler2D u_texture;
+//     void main () {
 
-    void main () {
+//       gl_FragColor.${components} = result;
+//     }
+//   `;
+// }
 
+// function subSample ({texture, outFbo}) {
 
-      gl_FragColor.${components} = result;
-    }
-  `;
-}
-
-function subSample ({texture, outFbo}) {
-
-  const draw = regl({
-      frag: frag,
-      vert: vert,
-      attributes: {
-          a_position: quad.verts,
-          a_uv: quad.uvs
-      },
-      elements: quad.indices,
-      uniforms: {
-          u_texture: regl.prop('texture'),
-          u_clip_y: clipY
-      },
-      framebuffer: regl.prop('fbo')
-  });
-
-
-}
+//   const draw = regl({
+//       frag: frag,
+//       vert: vert,
+//       attributes: {
+//           a_position: quad.verts,
+//           a_uv: quad.uvs
+//       },
+//       elements: quad.indices,
+//       uniforms: {
+//           u_texture: regl.prop('texture'),
+//           u_clip_y: clipY
+//       },
+//       framebuffer: regl.prop('fbo')
+//   });
+// }
 
 const blur = {
   box: {
@@ -223,9 +203,5 @@ const blur = {
     compute: computeGaussian
   }
 };
-
-
-
-
 
 module.exports = {blur};

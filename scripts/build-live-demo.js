@@ -31,9 +31,10 @@ mkdirp(BUILDDIR, function (err) {
     throw err;
   }
   ncp('assets', `${BUILDDIR}/assets`, function (err) {
-    if (err)
+    if (err) {
       throw err;
-  })
+    }
+  });
 
   let b = browserify({debug: true});
   b.add(MAINJSFILE);
@@ -43,14 +44,14 @@ mkdirp(BUILDDIR, function (err) {
     }
     console.log('bundled', MAINJSFILE);
 
-    fs.writeFile(`${BUILDDIR}/${MAINJSFILE}`, bundle, function(err){
+    fs.writeFile(`${BUILDDIR}/${MAINJSFILE}`, bundle, function (err) {
       if (err) {
         throw err;
       }
     });
   });
 
-  fs.writeFile(`${BUILDDIR}/${MAINHTMLFILE}`, HTMLCONTENT, function(err){
+  fs.writeFile(`${BUILDDIR}/${MAINHTMLFILE}`, HTMLCONTENT, function (err) {
     if (err) {
       throw err;
     }

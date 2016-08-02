@@ -86,8 +86,6 @@ function dataURIFromFBO ({fbo, width, height, regl}) {
   return canvas.toDataURL();
 }
 
-
-
 resl({
   manifest: {
     texture: {
@@ -140,72 +138,24 @@ resl({
     // and another for the input, for later use.
     let inFbo = fbos.pop();
 
-    
-    gaussian.blur.gaussian.compute({regl, texture, radius: 1, fbos, outFbo: outFbo, components: 'rgb', type: 'vec3'});
-
+    let radius = 1;
+    gaussian.blur.gaussian.compute({regl, texture, radius, fbos, outFbo: outFbo, components: 'rgb', type: 'vec3'});
 
     let upscaledCellWidth = 16;
     let upscaledCellHeight = 16;
     let upscaledWidth = texture.width * Math.max(upscaledCellWidth, upscaledCellHeight);
     let upscaledHeight = texture.height * Math.max(upscaledCellWidth, upscaledCellHeight);
 
-    // a command to take an input texture and "numerify" it and place it in a destination FBO.
-    const drawNumbersToFbo = regl({
-      frag: numerify.makeFrag({ multiplier: 256.0,
-                                sourceSize: `vec2(${texture.width}, ${texture.height})`,
-                                destinationCellSize: `vec2(${upscaledCellWidth - 1}, ${upscaledCellHeight - 1})`,
-                                destinationSize: `vec2(${upscaledWidth}, ${upscaledHeight})`,
-                                component: 'r'}),
-      vert: numerify.makeVert(),
-      attributes: {
-        a_position: quad.verts,
-        a_uv: quad.uvs
-      },
-      elements: quad.indices,
-      uniforms: {
-        digits_texture: digitsTexture,
-        source_texture: regl.prop('texture'),
-        u_clip_y: 1
-      },
-      framebuffer: regl.prop('fbo')
-    });
-
-    // allocate two FBOS to store the numerified textures.
-    let numbersFBOs = [null, null].map(function () {
-      return regl.framebuffer({
-        color: regl.texture({
-          width: upscaledWidth,
-          height: upscaledHeight,
-          stencil: false,
-          format: 'rgba',
-          type: 'uint8',
-          depth: false,
-          wrap: 'clamp',
-          mag: 'nearest',
-          min: 'nearest'
-        })
-      });
-    });
-
-    // one FBO to store the input texture as a numerified texture.
-    let inNumbersFBO = numbersFBOs[0];
-    // and a second FBO to store the blurred result texture as a numerified texture.
-    // let outNumbersFBO = numbersFBOs[1];
-
     // copy the input texture to the `inFbo`.
     drawTextureToFbo({texture, fbo: inFbo});
-    // "numerify" the input texture.
-    // drawNumbersToFbo({texture: inFbo.color[0], fbo: inNumbersFBO});
-    // "numerify" the blurred result texture.
-    // drawNumbersToFbo({texture: outFbo.color[0], fbo: outNumbersFBO});
 
     // draw the stuff to img tags, and put everything into the DOM for display.
 
     let $srcDiv = $('<div class="source-images"></div>').css('text-align', 'center').appendTo('body');
-    $('<h3>').appendTo($srcDiv).css('text-align', 'center').text('Source image (upscaled)');
+    $('<h3>').appendTo($srcDiv).css('text-align', 'center').text('Source image');
 
     let $resultDiv = $('<div class="result-images"></div>').css('text-align', 'center').appendTo('body');
-    $('<h3>').appendTo($resultDiv).css('text-align', 'center').text('Result image (upscaled)');
+    $('<h3>').appendTo($resultDiv).css('text-align', 'center').text('Result image');
 
     function figureTemplate ({src, captionHtml = '', alt = ''}) {
       return `
@@ -220,14 +170,14 @@ resl({
     upscaledHeight = texture.height;
 
     let $srcImg = $.parseHTML(figureTemplate({src: dataURIFromFBO({fbo: inFbo, width: upscaledWidth, height: upscaledHeight, regl}),
-                                               alt: 'Source image (Rescaled)',
-                                               captionHtml: '<strong>Source image (Rescaled)</strong>'}));
+                                               alt: 'Source image',
+                                               captionHtml: '<strong>Source image</strong>'}));
     // let $srcNumbersImg = $.parseHTML(figureTemplate({src: dataURIFromFBO({fbo: inNumbersFBO, width: upscaledWidth, height: upscaledHeight, regl}),
     //                                                   alt: 'Source image numerified red',
     //                                                   captionHtml: '<strong>Source image, numerified red</strong>'}));
     let $resultImg = $.parseHTML(figureTemplate({src: dataURIFromFBO({fbo: outFbo, width: upscaledWidth, height: upscaledHeight, regl}),
-                                               alt: 'Result blurred image (Rescaled)',
-                                               captionHtml: '<strong>Result blurred image (Rescaled)</strong>'}));
+                                               alt: 'Result blurred image',
+                                               captionHtml: `<strong>Result blurred image (kernel radius of ${radius})</strong>`}));
     // let $resultNumbersImg = $.parseHTML(figureTemplate({src: dataURIFromFBO({fbo: outNumbersFBO, width: upscaledWidth, height: upscaledHeight, regl}),
     //                                                   alt: 'Result blurred image numerified red',
     //                                                   captionHtml: '<strong>Result blurred image, numerified red</strong>'}));
