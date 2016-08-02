@@ -66,7 +66,7 @@
     "mytest": "semistandard | snazzy",
     "build": "npm run build-script && npm run build-demo && npm run build-live-demo",
     "build-script": "mkdir -p ./dist && browserify glsl-gaussian.js --standalone glsl-gaussian > ./dist/glsl-gaussian.js",
-    "build-demo": "mkdir -p ./www/glsl-gaussian-demo/ && browserify ./glsl-gaussian-demo.js | indexhtmlify > ./www/glsl-gaussian-demo/index.html",
+    "build-demo": "node scripts/build-demo.js",
     "build-live-demo": "node scripts/build-live-demo.js"
   }
 }

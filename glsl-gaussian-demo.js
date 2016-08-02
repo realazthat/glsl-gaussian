@@ -9,7 +9,6 @@ const regl = require('regl')({
 });
 
 const gaussian = require('./glsl-gaussian.js');
-const numerify = require('glsl-numerify');
 const quad = require('glsl-quad');
 
 // command to copy a texture to an FBO, assumes the texture is in opengl-order
@@ -90,16 +89,7 @@ resl({
   manifest: {
     texture: {
       type: 'image',
-      src: 'Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.png',
-      parser: (data) => regl.texture({
-        data: data,
-        mag: 'nearest',
-        min: 'nearest',
-        flipY: true
-      })
-    }, digitsTexture: {
-      type: 'image',
-      src: numerify.digits.uri,
+      src: './assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.png',
       parser: (data) => regl.texture({
         data: data,
         mag: 'nearest',
