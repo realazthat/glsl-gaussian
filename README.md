@@ -56,7 +56,7 @@ develop | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/develo
 
  Source Image |
 --------------|
-<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.jpg"/>
+<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.png"/>
 
  Gaussian Blur with radius 1  | Gaussian Blur with radius 2 | Gaussian Blur with radius 4 |
 ------------------------------|-----------------------------|-----------------------------|
