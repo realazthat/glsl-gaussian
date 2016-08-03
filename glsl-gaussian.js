@@ -102,7 +102,7 @@ function computeBoxBlur ({regl, src, radius, outFbo = null, components = 'rgba',
     },
     framebuffer: regl.prop('fbo')
   });
-  
+
   if (outFbo !== undefined && outFbo !== null) {
     if (outFbo.fbo !== null && outFbo.fbo !== undefined) {
       const drawViaViewport = regl({
