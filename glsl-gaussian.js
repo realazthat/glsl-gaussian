@@ -88,10 +88,24 @@ function computeBoxBlur ({regl, src, radius, outFbo = null, components = 'rgba',
   const vert = makeBoxBlurVShader({textureWidth, textureHeight, radius, components, type});
   const frag = makeBoxBlurFShader({textureWidth, textureHeight, radius, components, type});
 
-
+  const draw = regl({
+    vert: vert,
+    frag: frag,
+    attributes: {
+      a_position: quad.verts,
+      a_uv: quad.uvs
+    },
+    elements: quad.indices,
+    uniforms: {
+      u_sat_texture: regl.prop('satTexture'),
+      u_clip_y: clipY
+    },
+    framebuffer: regl.prop('fbo')
+  });
+  
   if (outFbo !== undefined && outFbo !== null) {
     if (outFbo.fbo !== null && outFbo.fbo !== undefined) {
-      const draw = regl({
+      const drawViaViewport = regl({
         vert: vert,
         frag: frag,
         attributes: {
@@ -106,22 +120,8 @@ function computeBoxBlur ({regl, src, radius, outFbo = null, components = 'rgba',
         framebuffer: regl.prop('fbo'),
         viewport: regl.prop('viewport')
       });
-      draw({satTexture: satTexture, fbo: outFbo.fbo, viewport: outFbo.viewport});
+      drawViaViewport({satTexture: satTexture, fbo: outFbo.fbo, viewport: outFbo.viewport});
     } else {
-      const draw = regl({
-        vert: vert,
-        frag: frag,
-        attributes: {
-          a_position: quad.verts,
-          a_uv: quad.uvs
-        },
-        elements: quad.indices,
-        uniforms: {
-          u_sat_texture: regl.prop('satTexture'),
-          u_clip_y: clipY
-        },
-        framebuffer: regl.prop('fbo')
-      });
       draw({satTexture: satTexture, fbo: outFbo});
     }
   } else {
@@ -153,7 +153,7 @@ function computeGaussian ({ regl, texture, radius, fbos, currentFboIndex = 0
       computeBoxBlur({regl, radius, src: {satTexture: satFbo.color[0]}, outFbo: outFbo, components, type, clipY});
       break;
     }
-    
+
     currentFboIndex = (currentFboIndex + 1) % fbos.length;
     let blurredFbo = fbos[currentFboIndex];
     computeBoxBlur({regl, radius, src: {satTexture: satFbo.color[0]}, outFbo: blurredFbo, components, type, clipY});
