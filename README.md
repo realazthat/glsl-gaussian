@@ -81,7 +81,8 @@ const gaussian = require('./glsl-gaussian.js');
                     `{currentFboIndex}` with the position of the last-used FBO. Defaults to `0`.
 * `outFbo` - destination regl FBO. Can be null, in which case the result will be left inside the `fbos` array
              on the last ping-pong; the return value with be of the form `{currentFboIndex}` so that you
-             can retrieve it.
+             can retrieve it. See `gaussian.blur.box.compute()` for more documentation on an alternate form
+             of `outFbo` that can output to a portion of the `outFbo` via a regl `viewport`.
 * `components` - a string indicating which components need to be processed and blurred; defaults to `'rgba'`.
 * `type` - a glsl type in string format indicating the type that can hold the components that need to be processed; defaults to `'vec4'`.
 * `clipY` - a value that represents the clipspace y multiple; a default value of `1` indicates opengl-style lower-left-corner-as-origin;
@@ -123,6 +124,10 @@ const gaussian = require('./glsl-gaussian.js');
 * `outFbo` - Destination regl FBO. Can be null, in which case `src.fbos` is expected to exist; the result of
              of the computation will be left inside the `src.fbos` array on the last ping-pong; the return
              value with be of the form `{currentFboIndex}` so that you can retrieve it.
+             Can also be a dictionary of the form `{fbo, viewport}`, so that the output will be drawn
+             to the viewport area of the `fbo`; see regl API docs for the form, but it is basically
+             something like `let viewport = {x,y,width,height}`; note that the `x,y` here are
+             from the bottom-left corner.
 * `components` - a string indicating which components need to be processed and blurred; defaults to `'rgba'`.
 * `type` - a glsl type in string format indicating the type that can hold the components that need to be processed; defaults to `'vec4'`.
 * `clipY` - a value that represents the clipspace y multiple; a default value of `1` indicates opengl-style lower-left-corner-as-origin;
