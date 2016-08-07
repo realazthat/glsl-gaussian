@@ -3,9 +3,34 @@ glsl-gaussian
 ---
 
 
+####Feed your eyes
+
+
+ Source Image |
+--------------|
+<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.png"/>
+
+ Gaussian Blur with radius 1  | Gaussian Blur with radius 2 | Gaussian Blur with radius 4 |
+------------------------------|-----------------------------|-----------------------------|
+<img src="./assets/result-256x256x-r1.png"/>|<img src="./assets/result-256x256x-r2.png"/>|<img src="./assets/result-256x256x-r4.png"/>|
+
+(Image credit: [Storm Cell Over the Southern Appalachian Mountains](http://www.nasa.gov/content/storm-cell-over-the-southern-appalachian-mountains),
+*NASA / Stu Broce*, public domain by virtue of being created by NASA)
+
+**Live demos:**
+
+ branch | demo
+--------|-------
+master  | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-demo/index.html)
+        | [glsl-gaussian-live-demo](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-live-demo/index.html)
+develop | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-demo/index.html)
+        | [glsl-gaussian-live-demo](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-live-demo/index.html)
+
+
 ####Description
 
-glsl-gaussian is a shader generator for WebGL, to generate a gaussian blur of an input texture.
+glsl-gaussian is a shader generator for WebGL, to generate a gaussian blur of an input texture. Use box-blur on summed-area-tables, to allow for gaussian filtering in constant time with respect to the kernel-radius (in english:
+the kernel radius can be large or small, it won't affect the computation speed).
 
 
 See `glsl-gaussian-live-demo.js`, `glsl-gaussian-demo.js` for usage.
@@ -40,27 +65,6 @@ To run the demo, run:
 
 ```
 
-**Live:**
-
- branch | demo
---------|-------
-master  | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-demo/index.html)
-        | [glsl-gaussian-live-demo](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-live-demo/index.html)
-develop | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-demo/index.html)
-        | [glsl-gaussian-live-demo](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-live-demo/index.html)
-
-**Results:**
-
-(Image credit: [Storm Cell Over the Southern Appalachian Mountains](http://www.nasa.gov/content/storm-cell-over-the-southern-appalachian-mountains),
-*NASA / Stu Broce*, public domain by virtue of being created by NASA)
-
- Source Image |
---------------|
-<img src="./assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.png"/>
-
- Gaussian Blur with radius 1  | Gaussian Blur with radius 2 | Gaussian Blur with radius 4 |
-------------------------------|-----------------------------|-----------------------------|
-<img src="./assets/result-256x256x-r1.png"/>|<img src="./assets/result-256x256x-r2.png"/>|<img src="./assets/result-256x256x-r4.png"/>|
 
 
 ####Docs
@@ -76,9 +80,11 @@ const gaussian = require('./glsl-gaussian.js');
 * `radius` - The radius of the gaussian blur; that is to say, the kernel window around the pixel will be of size `(2*radius+1)X(2*radius+1)`.
 * `fbos` - an array with at least 2 regl FBOs, used for ping-ponging during processing; should prolly have
            a type of float (32-bit) for each channel.
-* `currentFboIndex` the regl FBO index in `fbos` array to begin at for ping-ponging. The function will begin by incrementing this
-                    value and using the next FBO in the array. The function will return a value in the form of
-                    `{currentFboIndex}` with the position of the last-used FBO. Defaults to `0`.
+* `currentFboIndex` - the regl FBO index in `fbos` array to begin at for ping-ponging. The function will begin by
+                      incrementing this value and using the next FBO in the array. The function will return a value
+                      in the form of `{currentFboIndex}` with the position of the last-used FBO. Defaults to `0`.
+* `boxPasses` - The number of box-blur passes to use; the default is `3`, which supposedly gets an approximation
+                with an accuracy of 97% (<sup>[wikipedia](https://en.wikipedia.org/wiki/Box_blur)</sup>). 
 * `outFbo` - destination regl FBO. Can be null, in which case the result will be left inside the `fbos` array
              on the last ping-pong; the return value with be of the form `{currentFboIndex}` so that you
              can retrieve it. See `gaussian.blur.box.compute()` for more documentation on an alternate form
