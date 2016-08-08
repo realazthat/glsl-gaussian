@@ -105,7 +105,7 @@ function computeBoxBlur ({regl, src, radius, outFbo = null, components = 'rgba',
 
   if (outFbo !== undefined && outFbo !== null) {
     if (outFbo.fbo !== null && outFbo.fbo !== undefined) {
-      const drawViaViewport = regl({
+      const drawToViewport = regl({
         vert: vert,
         frag: frag,
         attributes: {
@@ -120,7 +120,7 @@ function computeBoxBlur ({regl, src, radius, outFbo = null, components = 'rgba',
         framebuffer: regl.prop('fbo'),
         viewport: regl.prop('viewport')
       });
-      drawViaViewport({satTexture: satTexture, fbo: outFbo.fbo, viewport: outFbo.viewport});
+      drawToViewport({satTexture: satTexture, fbo: outFbo.fbo, viewport: outFbo.viewport});
     } else {
       draw({satTexture: satTexture, fbo: outFbo});
     }
