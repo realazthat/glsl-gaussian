@@ -162,54 +162,149 @@ function computeGaussian ({ regl, texture, radius, fbos, currentFboIndex = 0
   return {currentFboIndex};
 }
 
-// function makeSubsampleVShader () {
-//   return `
-//     precision medium float;
-//     attribute vec2 a_position;
-//     attribute vec2 a_uv;
-//     uniform float u_clip_y;
+function makeSubsampleFShader ({resolution, sampleSize, components = 'rgba', type = 'vec4', strategy = 'lower-left'}) {
+  let resolutionDecl = '';
 
-//     varying vec2 v_uv;
+  if (resolution === 'uniform') {
+    resolutionDecl = 'uniform vec2 u_resolution;';
+    resolution = 'u_resolution';
+  } else {
+    resolutionDecl = `const vec2 resolution = vec2(${resolution.x}, ${resolution.y});`;
+    resolution = 'resolution';
+  }
 
-//     void main() {
-//       v_uv = a_uv;
+  if (strategy === 'average') {
+    return `
+      precision highp float;
 
-//       gl_Position = vec4(a_position.xy * vec2(1, u_clip_y), 0, 1);
-//     }
-//   `;
-// }
+      varying vec2 v_uv;
+      uniform sampler2D u_texture;
+      ${resolutionDecl}
 
-// function makeSubsampleFShader (sourceSize, destinationSize, components = 'rgba', type = 'vec4') {
-//   return `
-//     precision highp float;
+      const vec2 sample_size = vec2(${sampleSize.x}, ${sampleSize.y});
 
-//     varying vec2 v_uv;
-//     uniform sampler2D u_texture;
+      void main () {
+        ${type} color = vec4(0);
 
-//     void main () {
+        vec2 sample_ll_uv = v_uv - (((sample_size / 2.0) - .5)/${resolution});
 
-//       gl_FragColor.${components} = result;
-//     }
-//   `;
-// }
+        for (int i = 0; i < ${sampleSize.x}; ++i) {
+          for (int j = 0; j < ${sampleSize.y}; ++j) {
+            vec2 uv = sample_ll_uv + (vec2(i,j)/${resolution});
+            color += texture2D(u_texture, uv).${components};
+          }
+        }
 
-// function subSample ({texture, outFbo}) {
+        color = color / ${sampleSize.x * sampleSize.y};
 
-//   const draw = regl({
-//       frag: frag,
-//       vert: vert,
-//       attributes: {
-//           a_position: quad.verts,
-//           a_uv: quad.uvs
-//       },
-//       elements: quad.indices,
-//       uniforms: {
-//           u_texture: regl.prop('texture'),
-//           u_clip_y: clipY
-//       },
-//       framebuffer: regl.prop('fbo')
-//   });
-// }
+        gl_FragColor.${components} = color;
+      }
+    `;
+  }
+
+  let sampleSizeDecl = '';
+  if (sampleSize === 'uniform') {
+    sampleSizeDecl = 'uniform vec2 u_sample_size;';
+    sampleSize = 'u_sample_size';
+  } else {
+    sampleSizeDecl = `const vec2 sample_size = vec2(${sampleSize.x}, ${sampleSize.y});`;
+    sampleSize = 'sample_size';
+  }
+
+  let uvXForm = 'vec2 uv = v_uv;';
+
+  if (strategy === 'lower-left') {
+    uvXForm = `vec2 uv = floor(v_uv * ${resolution} / ${sampleSize}) / ${resolution};`;
+    /*
+     _____ _____ _____
+    |     |     |     |
+    |     |     |     |
+    |_____|_____|_____|
+    |     |     |     |
+    |     |  x  |     |
+    |_____|_____|_____|
+    |     |     |     |
+    |  X  |     |     |
+    |_____|_____|_____|
+
+    vec2 uv = v_uv - ((sampleSize / 2) - .5);
+     _____ _____
+    |     |     |
+    |     |     |
+    |_____x_____|
+    |     |     |
+    |  X  |     |
+    |_____|_____|
+
+    vec2 uv = v_uv - ((sampleSize / 2) - .5);
+    */
+    uvXForm = `vec2 uv = v_uv - ((${sampleSize} / 2.0) - 0.5) / ${resolution};`;
+  } else if (strategy === 'center') {
+    uvXForm = 'vec2 uv = v_uv;';
+  }
+
+  return `
+    precision highp float;
+
+    ${resolutionDecl}
+    ${sampleSizeDecl}
+
+    varying vec2 v_uv;
+    uniform sampler2D u_texture;
+
+    void main () {
+      ${uvXForm}
+
+      ${type} result = texture2D(u_texture, uv).${components};
+
+      gl_FragColor.${components} = result;
+    }
+  `;
+}
+
+function subsample ({ regl, texture, resolution, outFbo, outViewport = null,
+                      sampleSize = {x: 2, y: 2},
+                      strategy = 'lower-left',
+                      clipY = 1,
+                      components = 'rgba', type = 'vec4'}) {
+  const frag = makeSubsampleFShader({sampleSize, resolution, components, type, strategy});
+
+  const draw = regl({
+    vert: quad.shader.vert,
+    frag: frag,
+    attributes: {
+      a_position: quad.verts,
+      a_uv: quad.uvs
+    },
+    elements: quad.indices,
+    uniforms: {
+      u_texture: regl.prop('texture'),
+      u_clip_y: clipY
+    },
+    framebuffer: regl.prop('fbo')
+  });
+  const drawToViewport = regl({
+    vert: quad.shader.vert,
+    frag: frag,
+    attributes: {
+      a_position: quad.verts,
+      a_uv: quad.uvs
+    },
+    elements: quad.indices,
+    uniforms: {
+      u_texture: regl.prop('texture'),
+      u_clip_y: clipY
+    },
+    framebuffer: regl.prop('fbo'),
+    viewport: regl.prop('viewport')
+  });
+
+  if (outViewport !== null && outViewport !== undefined) {
+    drawToViewport({texture: texture, fbo: outFbo, viewport: outViewport});
+  } else {
+    draw({texture: texture, fbo: outFbo});
+  }
+}
 
 const blur = {
   box: {
@@ -224,4 +319,4 @@ const blur = {
   }
 };
 
-module.exports = {blur};
+module.exports = {blur, subsample};
