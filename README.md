@@ -119,7 +119,7 @@ const gaussian = require('./glsl-gaussian.js');
 ##### `gaussian.blur.box.compute ({regl, src, radius, outFbo = null, components = 'rgba', type = 'vec4', clipY = 1})`
 
 * Given an input texture, will compute the box blur.
-* `regl` - a regl context.
+* `regl` - A regl context.
 * `src` - A dictionary of the form `{satTexture}` OR `{texture, fbos, currentFboIndex}`.
   *  In the first form, the Summed Area Table
     is provided by you, the user. No FBOs are needed, just be sure to specify the `outFbo` argument.
@@ -141,6 +141,25 @@ const gaussian = require('./glsl-gaussian.js');
 * `clipY` - a value that represents the clipspace y multiple; a default value of `1` indicates opengl-style lower-left-corner-as-origin;
              a value of `-1` would mean a upper-left-corner-as-origin.
 
+##### `gaussian.subsample ({ regl, texture, resolution, outFbo, outViewport = null, sampleSize = {x: 2, y: 2}, strategy = 'lower-left', clipY = 1, components = 'rgba', type = 'vec4'})`
+
+* `regl` - A regl context.
+* `texture` - Input texture.
+* `resolution` - Resolution of the input texture.
+* `outFbo` - Destination regl FBO. Should probably be at an appropriately smaller size than the input texture (depending on the input `texture` size and `sampleSize`).
+* `outViewport` - Optional viewport dictionary, in the form of regl's viewports (see regl
+                  [API on viewports](https://github.com/mikolalysenko/regl/blob/gh-pages/API.md#viewport)),
+                  `subsample()` will write its output to this viewport within the FBO;
+                  defaults to writing to the full `outFbo`.
+* `sampleSize` - The sampling size; a sample size of `{x: 2, y:2}` means the output texture would
+                 be of half-resolution.
+* `strategy` - The strategy to use for subsampling, defaults to `'lower-left'`; other options are
+                `center` or `average` (slow). Note that if the `sampleSize` is `2x2`, and `min` filter
+                on `texture` is set to `linear`, then `center` is the same as `average` (except likely
+                faster).
+* `clipY` - See `gaussian.blur.gaussian.compute()`.
+* `components` - See `gaussian.blur.gaussian.compute()`.
+* `type` - See `gaussian.blur.gaussian.compute()`.
 
 ####Usage
 
