@@ -23,8 +23,10 @@ glsl-gaussian
 --------|-------
 master  | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-demo/index.html)
         | [glsl-gaussian-live-demo](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-live-demo/index.html)
+        | [glsl-gaussian-suite](https://realazthat.github.io/glsl-gaussian/master/www/glsl-gaussian-suite/glsl-gaussian-suite.html)
 develop | [glsl-gaussian-demo](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-demo/index.html)
         | [glsl-gaussian-live-demo](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-live-demo/index.html)
+        | [glsl-gaussian-suite](https://realazthat.github.io/glsl-gaussian/develop/www/glsl-gaussian-suite/glsl-gaussian-suite.html)
 
 
 ####Description
