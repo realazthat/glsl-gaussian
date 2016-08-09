@@ -4,7 +4,7 @@ const mkdirp = require('mkdirp');
 const ncp = require('ncp');
 const browserify = require('browserify');
 
-function buildADemo ({BUILDDIR, MAINJSFILE, MAINHTMLFILE, TITLE}) {
+function buildADemo ({BUILDDIR, MAINJSFILE, MAINHTMLFILE, TITLE, assets = []}) {
   const HTMLCONTENT = `
   <!DOCTYPE html>
   <html lang="en">
@@ -47,11 +47,21 @@ function buildADemo ({BUILDDIR, MAINJSFILE, MAINHTMLFILE, TITLE}) {
       });
     });
 
-    fs.writeFile(`${BUILDDIR}/${MAINHTMLFILE}`, HTMLCONTENT, function (err) {
-      if (err) {
-        throw err;
-      }
-    });
+    for (let asset of assets) {
+      ncp(asset, `${BUILDDIR}/${asset}`, function (err) {
+        if (err) {
+          throw err;
+        }
+      });
+    }
+
+    if (MAINHTMLFILE) {
+      fs.writeFile(`${BUILDDIR}/${MAINHTMLFILE}`, HTMLCONTENT, function (err) {
+        if (err) {
+          throw err;
+        }
+      });
+    }
   });
 }
 
