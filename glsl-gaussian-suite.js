@@ -1,9 +1,11 @@
 
+const range = require('array-range');
 const nunjucks = require('nunjucks');
 const $ = require('jquery-browserify');
 const resl = require('resl');
 const regl = require('regl')({
-  extensions: ['OES_texture_float', 'EXT_disjoint_timer_query', 'EXT_shader_texture_lod'],
+  extensions: ['OES_texture_float', 'EXT_shader_texture_lod'],
+  optionalExtensions: ['EXT_disjoint_timer_query'],
   // TODO: FIXME: dunno why we need this here, we do not read non-uint8 data from screen,
   // but it fails without this on gh-pages for some reason.
   attributes: {preserveDrawingBuffer: true},
@@ -14,10 +16,51 @@ const gaussian = require('./glsl-gaussian.js');
 const quad = require('glsl-quad');
 // const μs = require('microseconds');
 
+function extractMiplevel ({regl, texture, level,
+                          outFbo, outViewport = null,
+                          components = 'rgba', type = 'vec4'}) {
+  let frag = `
+    #extension GL_EXT_shader_texture_lod : require
+    precision highp float;
 
-const range = require('array-range');
+    varying vec2 v_uv;
+    uniform float u_level;
+    uniform sampler2D u_tex;
 
+    void main () {
+      ${type} result = texture2DLodEXT(u_tex, v_uv, u_level).${components};
 
+      gl_FragColor.${components} = result;
+      gl_FragColor.a = 1.0;
+    }
+  `;
+  let params = {
+    vert: quad.shader.vert,
+    frag: frag,
+    attributes: {
+      a_position: quad.verts,
+      a_uv: quad.uvs
+    },
+    elements: quad.indices,
+    uniforms: {
+      u_tex: regl.prop('texture'),
+      u_clip_y: 1,
+      u_level: regl.prop('level')
+    },
+    framebuffer: regl.prop('fbo')
+  };
+
+  const draw = regl(params);
+
+  params.viewport = regl.prop('viewport');
+  const drawToViewport = regl(params);
+
+  if (outViewport !== null && outViewport !== undefined) {
+    drawToViewport({texture, fbo: outFbo, level, outViewport});
+  } else {
+    draw({texture, fbo: outFbo, level});
+  }
+}
 
 // command to copy a texture to an FBO, but flipping the Y axis so that the uvs begin
 // at the upper right corner, so that it can be drawn to canvas etc.
@@ -77,28 +120,38 @@ function dataURIFromFBO ({fbo, x = 0, y = 0, width, height, regl}) {
 
 resl({
   manifest: {
-    texture: {
+    textures: {
       type: 'image',
       src: 'assets/Storm Cell Over the Southern Appalachian Mountains-dsc_2303_0-256x256.png',
-      parser: (data) => regl.texture({
-        data: data,
-        mag: 'nearest',
-        min: 'nearest',
-        flipY: true
-      })
+      parser: (data) => [
+        regl.texture({
+          data: data,
+          mag: 'nearest',
+          min: 'nearest',
+          flipY: true
+        }),
+        regl.texture({
+          data: data,
+          mag: 'nearest',
+          min: 'mipmap',
+          flipY: true,
+          mipmap: 'nice'
+        })
+      ]
     }
   },
-  onDone: ({texture}) => {
+  onDone: ({textures}) => {
+    let [texture, mippedTexture] = textures;
     $('canvas').css('z-index', '-10').css('visibility', 'hidden');
 
     let $page = $('<div class="page">')
       .css('z-index', '10')
-      .css('background-color', '#49A259')
       .css('color', '#CBCE92')
       .appendTo($('body'));
 
     let $pageDiv = $('<div/>').appendTo($page);
 
+    /*
     let template = `
     <table class="report">
       <thead>
@@ -167,6 +220,45 @@ resl({
             </figure>
           </td>
         </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    `;*/
+    let template = `
+    <table class="report">
+      <thead>
+        <tr>
+          <th>
+            *
+          </th>
+          {% for level in range(L+1) %}
+          <th>
+            level={{level}}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for row in range(sequences.length) %}
+      <tr>
+        <th>
+          {{sequences[row].name}}
+        </th>
+        {% for level in range(L+1) %}
+        <td>
+          <figure>
+            <img src="{{sequences[row].sequence[level]}}" />
+            <figcaption>
+              {{sequences[row].name}}
+              <br/>
+              <code>level={{level}}</code>,
+              <br/>
+              <code>size={{sequences[row].sizes[level].x}}X{{sequences[row].sizes[level].y}}</code>
+            </figcaption>
+          </figure>
+        </td>
+        {% endfor %}
+      </tr>
       {% endfor %}
       </tbody>
     </table>
@@ -241,19 +333,23 @@ resl({
     let scaledFbos = range(L + 1).map(function (level) {
       // level 1 should have a mipmap size of 2^(L-1)
       // level 2 should have a mipmap size of 2^(L-2)
-      let mipmapSize = 1 << (L - level);
+      let miplevelSize = 1 << (L - level);
 
-      return makeUint8Fbo({width: mipmapSize, height: mipmapSize});
+      return makeUint8Fbo({width: miplevelSize, height: miplevelSize});
     });
 
     let stack = [];
     let mipmapFullScale = [];
     let mipmapHalfScale = [];
+    let gpuMipmap = [];
+    let nnScaled = [];
 
     // add the full scale image to the image sequences.
     stack.push(dataURIFromFBO({fbo: inFbo, width, height, regl}));
     mipmapFullScale.push(dataURIFromFBO({fbo: inFbo, width, height, regl}));
     mipmapHalfScale.push(dataURIFromFBO({fbo: inFbo, width, height, regl}));
+    gpuMipmap.push(dataURIFromFBO({fbo: inFbo, width, height, regl}));
+    nnScaled.push(dataURIFromFBO({fbo: inFbo, width, height, regl}));
 
     for (let level = 1; level < L + 1; ++level) {
       // level 1 should have a radius of 1
@@ -262,14 +358,14 @@ resl({
       let radius = 1 << (level - 1);
       // level 1 should have a mipmap size of 2^(L-1)
       // level 2 should have a mipmap size of 2^(L-2)
-      let mipmapSize = 1 << (L - level);
+      let miplevelSize = 1 << (L - level);
       gaussian.blur.gaussian.compute({regl, texture, radius, fbos: gaussianFbos, outFbo, components, type});
       stack.push(dataURIFromFBO({fbo: outFbo, width, height, regl}));
 
-      // let outViewport = {x: 0, y: 0, width: mipmapSize, height: mipmapSize};
+      // let outViewport = {x: 0, y: 0, width: miplevelSize, height: miplevelSize};
       let sampleSize = {x: radius * 2, y: radius * 2};
       console.log('sampleSize:', sampleSize);
-      console.log('mipmapSize:', mipmapSize);
+      console.log('miplevelSize:', miplevelSize);
       let scaledFbo = scaledFbos[level];
       gaussian.subsample({regl,
                           texture: outFbo.color[0],
@@ -279,16 +375,14 @@ resl({
                           outFbo: scaledFbo,
                           // outViewport: outViewport,
                           components, type});
-      mipmapFullScale.push(dataURIFromFBO({fbo: scaledFbo, width: mipmapSize, height: mipmapSize, regl}));
+      mipmapFullScale.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
     }
 
-    let scaleSizes = range(L + 1).map((level) => ({x: 1 << (L - level), y: 1 << (L - level)}));
-
     /*
-    for (let level = 1; level < L; ++level) {
+    for (let level = 1; level < L + 1; ++level) {
       // level 1 should have a mipmap size of 2^(L-1)
       // level 2 should have a mipmap size of 2^(L-2)
-      let mipmapSize = 1 << (L - level);
+      let miplevelSize = 1 << (L - level);
       let currentTexture = (level == 0) ? texture : scaledFbos[level - 1];
 
       let outFbo = scaledFbos[level];
@@ -308,10 +402,63 @@ resl({
 
     }
     */
+    for (let level = 1; level < L + 1; ++level) {
+      // level 1 should have a mipmap size of 2^(L-1)
+      // level 2 should have a mipmap size of 2^(L-2)
+      let miplevelSize = 1 << (L - level);
+
+      let scaledFbo = scaledFbos[level];
+
+      extractMiplevel({regl, texture: mippedTexture, level,
+                          outFbo: scaledFbo,
+                          components, type});
+
+      gpuMipmap.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
+
+      extractMiplevel({ regl, texture: texture, level: 0,
+                        outFbo: scaledFbo,
+                        components, type});
+      nnScaled.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
+    }
 
     let M = {x: (1 << L), y: (1 << L)};
+    let scaleSizes = range(L + 1).map((level) => ({x: 1 << (L - level), y: 1 << (L - level)}));
 
-    let templateParams = {L, M, subsampleStrategy, scaleSizes, stack, mipmapHalfScale, mipmapFullScale};
+    let sequences = [];
+    sequences.push({
+      sequence: stack,
+      sizes: range(L + 1).map(() => ({x: 1 << L, y: 1 << L})),
+      name: 'Gaussian Stack'
+    });
+    sequences.push({
+      sequence: mipmapFullScale,
+      sizes: scaleSizes,
+      name: `Gaussian Mipmap (fullscale, ${subsampleStrategy} subsampling)`
+    });
+    sequences.push({
+      sequence: mipmapHalfScale,
+      sizes: scaleSizes,
+      name: `Recursive Gaussian Mipmap (halfscale, ${subsampleStrategy} subsampling)`
+    });
+    sequences.push({
+      sequence: gpuMipmap,
+      name: 'GPU Mipmap'
+    });
+    sequences.push({
+      sequence: nnScaled,
+      name: 'Nearest Neighbor Scaled'
+    });
+
+    let templateParams = {
+      L, M, subsampleStrategy,
+      // scaleSizes,
+      // stack,
+      // mipmapHalfScale,
+      // mipmapFullScale,
+      // gpuMipmap,
+      sequences
+    };
+
     $pageDiv.html(nunjucks.renderString(template, templateParams));
   }
 });

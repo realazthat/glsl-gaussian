@@ -1,5 +1,12 @@
 
+body {
+  background-color: #101010;
+}
 
 .report {
   text-align: center;
+}
+
+.nearest-neighbor {
+  image-rendering: pixelated;
 }
