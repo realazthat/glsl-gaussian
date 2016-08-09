@@ -240,25 +240,40 @@ resl({
       </thead>
       <tbody>
       {% for row in range(sequences.length) %}
+      {% for upscaled in [false, true] %}
       <tr>
         <th>
           {{sequences[row].name}}
+          <br/>
+          {% if upscaled %}
+          upscaled to {{M.x}}X{{M.y}}
+          {% endif %}
         </th>
         {% for level in range(L+1) %}
         <td>
           <figure>
-            <img src="{{sequences[row].sequence[level]}}" />
+            <img src="{{sequences[row].sequence[level]}}"
+              class="nearest-neighbor"
+              {% if upscaled %}
+              style="width: {{M.x}}px; height: {{M.y}}px;"
+              {% endif %} />
             <figcaption>
               {{sequences[row].name}}
               <br/>
               <code>level={{level}}</code>,
               <br/>
-              <code>size={{sequences[row].sizes[level].x}}X{{sequences[row].sizes[level].y}}</code>
+              <code>
+                size={{sequences[row].sizes[level].x}}X{{sequences[row].sizes[level].y}}
+                {% if upscaled %}
+                upscaled to {{M.x}}X{{M.y}}
+                {% endif %}
+              </code>
             </figcaption>
           </figure>
         </td>
         {% endfor %}
       </tr>
+      {% endfor %}
       {% endfor %}
       </tbody>
     </table>
@@ -442,10 +457,12 @@ resl({
     });
     sequences.push({
       sequence: gpuMipmap,
+      sizes: scaleSizes,
       name: 'GPU Mipmap'
     });
     sequences.push({
       sequence: nnScaled,
+      sizes: scaleSizes,
       name: 'Nearest Neighbor Scaled'
     });
 
