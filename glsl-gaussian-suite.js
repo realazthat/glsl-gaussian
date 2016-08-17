@@ -4,7 +4,7 @@ const nunjucks = require('nunjucks');
 const $ = require('jquery-browserify');
 const resl = require('resl');
 const regl = require('regl')({
-  extensions: ['OES_texture_float', 'EXT_shader_texture_lod'],
+  extensions: ['OES_texture_float'],
   optionalExtensions: ['EXT_disjoint_timer_query'],
   // TODO: FIXME: dunno why we need this here, we do not read non-uint8 data from screen,
   // but it fails without this on gh-pages for some reason.
@@ -16,19 +16,17 @@ const gaussian = require('./glsl-gaussian.js');
 const quad = require('glsl-quad');
 // const μs = require('microseconds');
 
-function extractMiplevel ({regl, texture, level,
+function extractNN ({regl, texture,
                           outFbo, outViewport = null,
                           components = 'rgba', type = 'vec4'}) {
   let frag = `
-    #extension GL_EXT_shader_texture_lod : require
     precision highp float;
 
     varying vec2 v_uv;
-    uniform float u_level;
     uniform sampler2D u_tex;
 
     void main () {
-      ${type} result = texture2DLodEXT(u_tex, v_uv, u_level).${components};
+      ${type} result = texture2D(u_tex, v_uv).${components};
 
       gl_FragColor.${components} = result;
       gl_FragColor.a = 1.0;
@@ -44,8 +42,7 @@ function extractMiplevel ({regl, texture, level,
     elements: quad.indices,
     uniforms: {
       u_tex: regl.prop('texture'),
-      u_clip_y: 1,
-      u_level: regl.prop('level')
+      u_clip_y: 1
     },
     framebuffer: regl.prop('fbo')
   };
@@ -56,9 +53,9 @@ function extractMiplevel ({regl, texture, level,
   const drawToViewport = regl(params);
 
   if (outViewport !== null && outViewport !== undefined) {
-    drawToViewport({texture, fbo: outFbo, level, outViewport});
+    drawToViewport({texture, fbo: outFbo, outViewport});
   } else {
-    draw({texture, fbo: outFbo, level});
+    draw({texture, fbo: outFbo});
   }
 }
 
@@ -151,79 +148,6 @@ resl({
 
     let $pageDiv = $('<div/>').appendTo($page);
 
-    /*
-    let template = `
-    <table class="report">
-      <thead>
-        <tr>
-          <th>
-            level
-          </th>
-          <th>
-            Gaussian Stack
-          </th>
-          <th>
-            Gaussian Mipmap (fullscale, {{subsampleStrategy}} subsampling)
-          </th>
-          <th>
-            Gaussian Mipmap (halfscale, {{subsampleStrategy}} subsampling)
-          </th>
-          <th>
-            GPU Mipmap
-          </th>
-        </tr>
-        </thead>
-      <tbody>
-      {% for level in range(L+1) %}
-        <tr>
-          <td>
-            {{level}}
-          </td>
-          <td>
-            <figure>
-              <img src="{{stack[level]}}" />
-              <figcaption
-                Gaussian stack level,
-                <code>level={{level}}</code>,
-                <code>size={{ M.x }}X{{ M.y }}</code>
-              </figcaption>
-            </figure>
-          </td>
-          <td>
-            <figure>
-              <img src="{{mipmapFullScale[level]}}" />
-              <figcaption>
-                Mipmap level,
-                <code>level={{level}}</code>,
-                <code>size={{scaleSizes[level].x}}X{{scaleSizes[level].y}}</code>
-              </figcaption>
-            </figure>
-          </td>
-          <td>
-            <figure>
-              <img src="{{mipmapHalfScale[level]}}" />
-              <figcaption>
-                Recursive mipmap level,
-                <code>level={{level}}</code>,
-                <code>size={{scaleSizes[level].x}}X{{scaleSizes[level].y}}</code>
-              </figcaption>
-            </figure>
-          </td>
-          <td>
-            <figure>
-              <img src="{{gpuMipmap[level]}}" />
-              <figcaption>
-                GPU mipmap level,
-                <code>level={{level}}</code>,
-                <code>size={{scaleSizes[level].x}}X{{scaleSizes[level].y}}</code>
-              </figcaption>
-            </figure>
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    `;*/
     let template = `
     <table class="report">
       <thead>
@@ -256,7 +180,8 @@ resl({
               class="nearest-neighbor"
               {% if upscaled %}
               style="width: {{M.x}}px; height: {{M.y}}px;"
-              {% endif %} />
+              {% endif %}
+               />
             <figcaption>
               {{sequences[row].name}}
               <br/>
@@ -284,17 +209,18 @@ resl({
         color: regl.texture({
           width: texture.width,
           height: texture.height,
-          stencil: false,
           format: 'rgba',
           type: 'float',
           depth: false,
+          stencil: false,
           wrap: 'clamp',
           mag: 'nearest',
           min: 'nearest'
         }),
-        stencil: false,
         depth: false,
+        stencil: false,
         depthStencil: false,
+        depthTexture: false,
         wrap: 'clamp',
         mag: 'nearest',
         min: 'nearest'
@@ -393,30 +319,6 @@ resl({
       mipmapFullScale.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
     }
 
-    /*
-    for (let level = 1; level < L + 1; ++level) {
-      // level 1 should have a mipmap size of 2^(L-1)
-      // level 2 should have a mipmap size of 2^(L-2)
-      let miplevelSize = 1 << (L - level);
-      let currentTexture = (level == 0) ? texture : scaledFbos[level - 1];
-
-      let outFbo = scaledFbos[level];
-
-      // halfscale of the previous mipmap level.
-      gaussian.blur.gaussian.compute({regl, texture, radius: 1, fbos: gaussianFbos, outFbo, components, type});
-
-      let outViewport = {x: 0, y: 0, width: texture.width / 2*(1 << (L - k)), height: texture.height / 2*(1 << (L - k))};
-      gaussian.subsample({regl,
-                          texture: outFbo.color[0],
-                          resolution: {x: texture.width, y: texture.height},
-                          sampleSize: {x: radius * 2, y: radius * 2},
-                          strategy: subsampleStrategy,
-                          outFbo: {fbo: scaledFbo, outViewport},
-                          components, type});
-      mipmapHalfScale.push(dataURIFromFBO(fbo: scaledFbo, outViewport.width, outViewport.height, regl));
-
-    }
-    */
     for (let level = 1; level < L + 1; ++level) {
       // level 1 should have a mipmap size of 2^(L-1)
       // level 2 should have a mipmap size of 2^(L-2)
@@ -424,15 +326,21 @@ resl({
 
       let scaledFbo = scaledFbos[level];
 
-      extractMiplevel({regl, texture: mippedTexture, level,
+      // here we extract NN to an FBO that is smaller and smaller, so that each pixel covers a larger
+      // area, activating the LOD; the mippedTexture has mipmap LOD turned on, and scaledFbo is
+      // an appropriately sized FBO with very large pixels (i.e very view pixels, each covering a larger area
+      // of the input texture)
+      extractNN({regl, texture: mippedTexture,
                           outFbo: scaledFbo,
                           components, type});
 
       gpuMipmap.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
 
-      extractMiplevel({ regl, texture: texture, level: 0,
-                        outFbo: scaledFbo,
-                        components, type});
+      // here we extract the NN to an FBO that is smaller and smaller BUT, there are no mipmaps
+      // so it is forced to take the center of the input pixel as the resulting value.
+      extractNN({ regl, texture: texture,
+                  outFbo: scaledFbo,
+                  components, type});
       nnScaled.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
     }
 
