@@ -65,6 +65,11 @@ To run the demo, run:
     #browser should open with the demo
     budo glsl-gaussian-live-demo.js --open
 
+    #browser should open with the demo
+    budo glsl-gaussian-suite.js --open
+
+    #browse to `/glsl-gaussian-suite.html`
+
 ```
 
 
