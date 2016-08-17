@@ -16,6 +16,27 @@ const gaussian = require('./glsl-gaussian.js');
 const quad = require('glsl-quad');
 // const μs = require('microseconds');
 
+
+function makeUint8Fbo ({regl, width, height}) {
+  return regl.framebuffer({
+    color: regl.texture({
+      width: width,
+      height: height,
+      stencil: false,
+      format: 'rgba',
+      type: 'uint8',
+      depth: false,
+      wrap: 'clamp',
+      mag: 'linear',
+      min: 'linear'
+    }),
+    depth: false,
+    stencil: false,
+    depthStencil: false,
+    depthTexture: false
+  });
+}
+
 function extractNN ({regl, texture,
                           outFbo, outViewport = null,
                           components = 'rgba', type = 'vec4'}) {
@@ -59,6 +80,58 @@ function extractNN ({regl, texture,
   }
 }
 
+function gaussianDownsample ({regl, texture, subsampleStrategy, scaledFbo = null, components = 'rgba', type = 'vec4'}) {
+  let gaussianFbos = range(2).map(function () {
+    return regl.framebuffer({
+      color: regl.texture({
+        width: texture.width,
+        height: texture.height,
+        format: 'rgba',
+        type: 'float',
+        depth: false,
+        stencil: false,
+        wrap: 'clamp',
+        mag: 'nearest',
+        min: 'nearest'
+      }),
+      depth: false,
+      stencil: false,
+      depthStencil: false,
+      depthTexture: false
+    });
+  });
+
+  let blurredFbo = makeUint8Fbo({regl, width: texture.width, height: texture.height});
+
+  gaussian.blur.gaussian.compute({regl, texture, radius: 1, fbos: gaussianFbos, outFbo: blurredFbo, components, type});
+
+  if (scaledFbo === null) {
+    scaledFbo = makeUint8Fbo({regl, width: texture.width >> 1, height: texture.height >> 1});
+  }
+
+  if (scaledFbo.color[0].width !== texture.width >> 1 || scaledFbo.color[0].height !== texture.height >> 1) {
+    throw new Error('Output FBO scaledFbo\'s size does not match half the input texture\'s size');
+  }
+
+  let sampleSize = {x: 2, y: 2};
+  gaussian.subsample({regl,
+                      texture: blurredFbo.color[0],
+                      resolution: {x: texture.width >> 1, y: texture.height >> 1},
+                      sampleSize,
+                      strategy: subsampleStrategy,
+                      outFbo: scaledFbo,
+                      // outViewport: outViewport,
+                      components, type});
+
+  gaussianFbos.forEach(function (fbo) {
+    fbo.destroy();
+  });
+
+  blurredFbo.destroy();
+
+  return scaledFbo;
+}
+
 // command to copy a texture to an FBO, but flipping the Y axis so that the uvs begin
 // at the upper right corner, so that it can be drawn to canvas etc.
 const drawToCanvasFBO = regl({
@@ -84,10 +157,7 @@ function dataURIFromFBO ({fbo, x = 0, y = 0, width, height, regl}) {
       stencil: false,
       format: 'rgba',
       type: 'uint8',
-      depth: false,
-      wrap: 'clamp',
-      mag: 'nearest',
-      min: 'nearest'
+      depth: false
     })
   });
 
@@ -220,36 +290,9 @@ resl({
         depth: false,
         stencil: false,
         depthStencil: false,
-        depthTexture: false,
-        wrap: 'clamp',
-        mag: 'nearest',
-        min: 'nearest'
+        depthTexture: false
       });
     });
-
-    function makeUint8Fbo ({width, height}) {
-      return regl.framebuffer({
-        color: regl.texture({
-          width: width,
-          height: height,
-          stencil: false,
-          format: 'rgba',
-          type: 'uint8',
-          depth: false,
-          wrap: 'clamp',
-          mag: 'linear',
-          min: 'linear'
-        }),
-        width: width,
-        height: height,
-        depth: false,
-        stencil: false,
-        depthStencil: false,
-        depthTexture: false,
-        colorType: 'uint8',
-        colorFormat: 'rgba'
-      });
-    }
 
     let components = 'rgba';
     let type = 'vec4';
@@ -270,14 +313,17 @@ resl({
       colorFormat: 'rgba'
     });
 
-    let outFbo = makeUint8Fbo({width, height});
+    let outFbo = makeUint8Fbo({regl, width, height});
     let scaledFbos = range(L + 1).map(function (level) {
       // level 1 should have a mipmap size of 2^(L-1)
       // level 2 should have a mipmap size of 2^(L-2)
       let miplevelSize = 1 << (L - level);
 
-      return makeUint8Fbo({width: miplevelSize, height: miplevelSize});
+      return makeUint8Fbo({regl, width: miplevelSize, height: miplevelSize});
     });
+
+    let rootScaledFbo = scaledFbos[0];
+    rootScaledFbo({color: texture});
 
     let stack = [];
     let mipmapFullScale = [];
@@ -342,6 +388,15 @@ resl({
                   outFbo: scaledFbo,
                   components, type});
       nnScaled.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
+    }
+
+    for (let level = 1; level < L + 1; ++level) {
+      let miplevelSize = 1 << (L - level);
+      let prevScaledFbo = scaledFbos[level - 1];
+      let prevTexture = prevScaledFbo.color[0];
+      let scaledFbo = scaledFbos[level];
+      gaussianDownsample({regl, texture: prevTexture, subsampleStrategy, scaledFbo, components, type});
+      mipmapHalfScale.push(dataURIFromFBO({fbo: scaledFbo, width: miplevelSize, height: miplevelSize, regl}));
     }
 
     let M = {x: (1 << L), y: (1 << L)};
